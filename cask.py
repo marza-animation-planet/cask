@@ -46,10 +46,10 @@ __version__ = "1.0.1"
 
 import os
 import re
-import imath
 import ctypes
 import weakref
 import alembic
+import imath
 from functools import wraps
 
 # maps cask objects to Alembic IObjects
@@ -446,7 +446,7 @@ class Archive(object):
 
         # time sampling attributes
         self.time_sampling_id = 0
-        self.fps = fps
+        self.fps = float(fps)
         self.__start_time = None
         self.__end_time = None
 
@@ -969,10 +969,12 @@ class Property(object):
         if time is not None:
             return ts.getNearIndex(float(time), numSamples)
         elif frame is not None:
-            return ts.getNearIndex((frame / float(self.archive().fps)),
-                numSamples)
+            return ts.getNearIndex((frame / self.archive().fps), numSamples)
         else:
             return 0
+
+    def get_sample_index(self, time=None, frame=None):
+        return self.__get_sample_index(time=time, frame=frame)
 
     @property
     def values(self):
@@ -1192,6 +1194,23 @@ class Object(object):
     schema = property(__get_schema, __set_schema,
                       doc="Returns the Alembic schema object.")
 
+    def get_sample_index(self, time=None, frame=None):
+        """
+        Converts time in secs or frame number to sample index.
+
+        :param time: time in seconds.
+        :param frame: frame number.
+        :return: sample index.
+        """
+        ts = self.schema.getTimeSampling()
+        numSamples = self.schema.getNumSamples()
+        if time is not None:
+            return ts.getNearIndex(float(time), numSamples)
+        elif frame is not None:
+            return ts.getNearIndex((frame / self.archive().fps), numSamples)
+        else:
+            return 0
+
     @classmethod
     def matches(cls, iobject):
         """Returns True if a given iobject type matches this type.
@@ -1400,13 +1419,13 @@ class Object(object):
         except AttributeError:
             return self.parent.end_frame()
 
-    def global_matrix(self, index=0):
+    def global_matrix(self, index=None, time=None, frame=None):
         """Returns world space matrix for this object.
         """
         def accum_xform(xform, obj):
             """recursive xform accum"""
             if Xform.matches(obj._iobject):
-                xform *= obj.matrix(index)
+                xform *= obj.matrix(index=index, time=time, frame=frame)
         xform = imath.M44d()
         xform.makeIdentity()
         parent = self
@@ -1512,12 +1531,14 @@ class Xform(Object):
     def __init__(self, *args, **kwargs):
         super(Xform, self).__init__(*args, **kwargs)
 
-    def matrix(self, index=0):
+    def matrix(self, index=None, time=None, frame=None):
         """
         Returns the xform matrix value for a given index.
 
         :param index: Sample index.
         """
+        if index is None:
+            index = self.get_sample_index(time, frame)
         return self.schema.getValue(index).getMatrix()
 
     def set_scale(self, *args):
@@ -1586,12 +1607,12 @@ class Material(Object):
 
 class Light(Object):
     """Light I/O Object subclass."""
-    _sample_class = alembic.AbcGeom.CameraSample
     def __init__(self, *args, **kwargs):
         super(Light, self).__init__(*args, **kwargs)
 
 
 class Points(Object):
     """Points I/O Object subclass."""
+    _sample_class = alembic.AbcGeom.OPointsSchemaSample
     def __init__(self, *args, **kwargs):
         super(Points, self).__init__(*args, **kwargs)
