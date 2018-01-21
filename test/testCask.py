@@ -1,6 +1,6 @@
 #-******************************************************************************
 #
-# Copyright (c) 2012-2016,
+# Copyright (c) 2012-2018,
 #  Sony Pictures Imageworks Inc. and
 #  Industrial Light & Magic, a division of Lucasfilm Entertainment Company Ltd.
 #
@@ -53,7 +53,6 @@ TEMPDIR = tempfile.mkdtemp()
 
 """
 TODO
- - add new TimeSampling objects to archives (empty and from disk)
  - more tests for getting and setting values/samples
  - test creating prototype schema objects
  - test name collisions when creating new objects and properties
@@ -666,7 +665,13 @@ class Test1_Write(unittest.TestCase):
         fred = foo.properties["fred"] = cask.Property()
         color = foo.properties["color"] = cask.Property()
         color.metadata["interpretation"] = "rgb"
-        
+
+        # test setting explicit data type
+        visible = foo.properties["visible"] = cask.Property()
+        visible.set_value(cask.Int8(0), index=0)
+        something = foo.properties["something"] = cask.Property()
+        something.set_value(cask.Int32(1234), index=0)
+
         # set test values
         v = imath.UnsignedCharArray(5)
         for i in range(0, 5):
@@ -697,7 +702,9 @@ class Test1_Write(unittest.TestCase):
         waldo = foo.properties["waldo"]
         fred = foo.properties["fred"]
         color = foo.properties["color"]
-        
+        visible = foo.properties["visible"]
+        something = foo.properties["something"]
+
         # assert pod, extent values
         self.assertEqual(bar.extent(), 5)
         self.assertEqual(bar.pod(), alembic.Util.POD.kUint8POD)
@@ -724,6 +731,12 @@ class Test1_Write(unittest.TestCase):
         self.assertEqual(color.pod(), alembic.Util.POD.kFloat32POD)
         self.assertEqual(color.metadata["interpretation"], "rgb")
         self.assertEqual(color.values[0], imath.Color3f(1, 2, 3))
+        self.assertEqual(visible.values[0], 0)
+        self.assertEqual(visible.pod(), alembic.Util.POD.kInt8POD)
+        self.assertEqual(visible.extent(), 1)
+        self.assertEqual(something.values[0], 1234)
+        self.assertEqual(something.pod(), alembic.Util.POD.kInt32POD)
+        self.assertEqual(something.extent(), 1)
 
     def test_child_bounds(self):
         filename_1 = os.path.join(TEMPDIR, "cask_child_bounds_1.abc")
@@ -1030,6 +1043,30 @@ class Test2_Read(unittest.TestCase):
         self.assertTrue("nurby" in d.children.keys())
         self.assertEqual(type(d.children["meshy"]), cask.Xform)
         self.assertEqual(type(d.children["nurby"]), cask.NuPatch)
+
+    def test_verify_copy_timesampling(self):
+        test_cube_out = cube_out("cask_test_copy_timesamplings_1.abc")
+        test_file_path = os.path.join(TEMPDIR, "cask_test_copy_timesamplings_2.abc")
+        self.assertTrue(cask.is_valid(test_cube_out))
+
+        a = cask.Archive(test_cube_out)
+
+        # create new archive and copy ts objects
+        b = cask.Archive()
+        b.timesamplings.extend(a.timesamplings[:])
+
+        self.assertEqual(len(a.timesamplings), len(b.timesamplings))
+        b.write_to_file(test_file_path)
+        b.close()
+
+        # verify the ts objects were written to the archive
+        c = cask.Archive(test_file_path)
+        self.assertEqual(len(a.timesamplings), len(c.timesamplings))
+        ts_a = a.timesamplings[-1]
+        ts_c = c.timesamplings[-1]
+        self.assertEqual(ts_a.getNumStoredTimes(), ts_c.getNumStoredTimes())
+        for i, t in enumerate(ts_a.getStoredTimes()):
+            self.assertEqual(t, ts_c.getStoredTimes()[i])
 
     def test_find(self):
         filename = os.path.join(TEMPDIR, "cask_write_mesh.abc")
