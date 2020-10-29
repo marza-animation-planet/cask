@@ -1683,5 +1683,6 @@ class Light(Object):
 
 class Points(Object):
     """Points I/O Object subclass."""
+    _sample_class = alembic.AbcGeom.OPointsSchemaSample
     def __init__(self, *args, **kwargs):
         super(Points, self).__init__(*args, **kwargs)

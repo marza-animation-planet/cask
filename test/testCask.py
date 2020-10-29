@@ -336,6 +336,28 @@ class Test1_Write(unittest.TestCase):
         a.write_to_file(filename)
         self.assertTrue(os.path.isfile(filename))
 
+    def test_write_points(self):
+        filename = os.path.join(TEMPDIR, "cask_write_points.abc")
+
+        # create empty archive, xform and polymesh
+        a = cask.Archive()
+        x = cask.Xform()
+        pts = cask.Points()
+
+        # hierarchy assignment
+        a.top.children["points"] = x
+        x.children["pointsShape"] = pts
+
+        pts_sample = alembic.AbcGeom.OPointsSchemaSample()
+        pts_sample.setIds(meshData.pointsIndices)
+        pts_sample.setPositions(meshData.points)
+
+        pts.set_sample(pts_sample)
+
+        # write to disk
+        a.write_to_file(filename)
+        self.assertTrue(os.path.isfile(filename))
+
     def test_new_property(self):
         filename = os.path.join(TEMPDIR, "cask_new_property.abc")
 
@@ -986,6 +1008,35 @@ class Test2_Read(unittest.TestCase):
         # check one of the properties
         vals = x.properties.values()[0].properties[".vals"]
         self.assertEqual(vals.values[0], imath.V3d(1, 2, 3))
+
+    def test_verify_write_points(self):
+        filename = os.path.join(TEMPDIR, "cask_write_points.abc")
+        self.assertTrue(cask.is_valid(filename))
+
+        # get the objects
+        a = cask.Archive(filename)
+        x = a.top.children.values()[0]
+        pts = x.children.values()[0]
+
+        # verify the hierarchy
+        self.assertEqual(x.name, "points")
+        self.assertEqual(pts.name, "pointsShape")
+        self.assertEqual(type(pts), cask.Points)
+
+        # get sample
+        self.assertEqual(len(pts.samples), 1)
+
+        pts_sample = pts.samples[0]
+
+        # get arrays
+        pts_id_array = pts_sample.getIds()
+        pts_pos_array = pts_sample.getPositions()
+
+        self.assertIsInstance(pts_id_array, imath.IntArray)
+        self.assertIsInstance(pts_pos_array, imath.V3fArray)
+
+        self.assertEqual(pts_id_array, meshData.pointsIndices)
+        self.assertEqual(pts_pos_array, meshData.points)
 
     def test_verify_selective_update(self):
         filename = os.path.join(TEMPDIR, "cask_selective_update.abc")
