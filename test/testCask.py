@@ -206,7 +206,7 @@ class Test1_Write(unittest.TestCase):
         self.assertTrue(os.path.isfile(filename))
 
     def test_extract_light(self):
-        filename = os.path.join(TEMPDIR, "cask_exract_light.abc")
+        filename = os.path.join(TEMPDIR, "cask_extract_light.abc")
 
         # open light archive and create new empty archive
         a = cask.Archive(lights_out())
@@ -913,7 +913,7 @@ class Test2_Read(unittest.TestCase):
         self.assertEqual(p.path(), "/x/p")
 
     def test_verify_extract_light(self):
-        filename = os.path.join(TEMPDIR, "cask_exract_light.abc")
+        filename = os.path.join(TEMPDIR, "cask_extract_light.abc")
         self.assertTrue(cask.is_valid(filename))
 
         # open the archive
